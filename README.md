@@ -55,6 +55,21 @@ py -3.12 -m venv .venv
 
 ## 用法
 
+### 一键启动（推荐）
+
+```
+run.bat                  :: 启动图形界面（双击即可）
+run.bat hdr              :: HDR 合成
+run.bat snap             :: 抓单帧
+run.bat control --temp   :: 读相机温度
+run.bat smoke            :: GUI 冒烟测试
+run.bat vc71_hdr.py --scale 1.0   :: 也可直接给脚本名 + 参数
+```
+
+`run.bat` 会自动定位 `.venv`、切到 `src/`、并清掉可能污染 venv 的 `PYTHONPATH`。
+
+### 直接运行脚本
+
 所有脚本从 `src/` 目录运行（它们会自动到上级目录找 `settings.xml`）：
 
 ### 图形界面
