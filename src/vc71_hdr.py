@@ -70,8 +70,16 @@ def db_range(x):
     return 20 * np.log10(mx / max(mn, 1e-9))
 
 
+COMPARE_MAX_W = 2400   # 对比图仅作预览, 限制总宽 (全尺寸下否则会写出 ~170MB PNG)
+
+
 def make_compare(img_a, img_b, label_a='Debevec', label_b='Linear'):
     a, b = img_a.copy(), img_b.copy()
+    if a.shape[1] * 2 > COMPARE_MAX_W:          # 全尺寸输入先缩小成轻量预览
+        s = COMPARE_MAX_W / (a.shape[1] * 2)
+        nh, nw = max(1, int(a.shape[0] * s)), max(1, int(a.shape[1] * s))
+        a = cv2.resize(a, (nw, nh), interpolation=cv2.INTER_AREA)
+        b = cv2.resize(b, (nw, nh), interpolation=cv2.INTER_AREA)
     if a.ndim == 2:
         a = cv2.cvtColor(a, cv2.COLOR_GRAY2BGR)
         b = cv2.cvtColor(b, cv2.COLOR_GRAY2BGR)

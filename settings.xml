@@ -57,7 +57,7 @@
   <!-- ===== HDR 合成 ===== -->
   <hdr>
     <shutters>100,1000,10000,100000,1000000</shutters>  <!-- 微秒, 每档10倍 -->
-    <scale>0.25</scale>                                 <!-- 合成降采样比例 -->
+    <scale>1.0</scale>                                  <!-- 合成降采样比例 (1.0=全尺寸; 0.25 约提速10倍) -->
     <skip_mean_below>2</skip_mean_below>                <!-- 剔除过度欠曝档(均值<2) -->
     <skip_mean_above>4090</skip_mean_above>             <!-- 剔除过度过曝档(均值>4090) -->
   </hdr>

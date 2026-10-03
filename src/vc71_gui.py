@@ -146,7 +146,8 @@ class CameraThread(QThread):
             frame = grab_frame(channel, 25000)
             mean = float(frame.mean())
             means.append(mean)
-            f = cv2.resize(frame, (dw, dh), interpolation=cv2.INTER_AREA)
+            f = frame if SETTINGS.hdr_scale == 1.0 else cv2.resize(
+                frame, (dw, dh), interpolation=cv2.INTER_AREA)
             imgs12.append(f)
             imgs8.append((f >> 4).astype(np.uint8))
             times.append(us / 1e6)
