@@ -1,0 +1,29 @@
+# ===== 虚拟环境 =====
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ===== Python 缓存 =====
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# ===== 输出(图像 / HDR, 不入库) =====
+output/*
+!output/.gitkeep
+
+# ===== 相机原始数据 =====
+*.hdr
+*.bmp
+*.exr
+
+# ===== 本地覆盖配置(含机器专属路径, 不入库) =====
+settings_local.xml
+
+# ===== 编辑器 =====
+.vscode/
+.idea/
+*.swp
+*~

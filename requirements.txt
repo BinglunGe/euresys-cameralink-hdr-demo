@@ -1,0 +1,11 @@
+# Euresys MultiCam Python 绑定不是 PyPI 包, 需从 Euresys 安装目录安装:
+#   pip install "C:\Program Files (x86)\Euresys\MultiCam\Python\MultiCam-<ver>-py2.py3-none-any.whl"
+# 该 wheel 是纯 Python (ctypes), 依赖系统里的 MultiCam.dll (随驱动安装)。
+MultiCam==6.19.3.5685
+
+numpy>=1.24
+opencv-python>=4.8
+PySide6>=6.5
+pyserial>=3.5
+Pillow>=10.0
+six>=1.12

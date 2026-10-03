@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VC-71MC-M4 相机系统配置文件
+  集中管理所有原本硬编码的路径与参数。修改此文件即可适配其他相机/环境。
+-->
+<settings>
+
+  <!-- ===== SDK 与驱动路径 ===== -->
+  <sdk>
+    <multicam_install>C:\Program Files (x86)\Euresys\MultiCam</multicam_install>
+    <multicam_wheel>Python\MultiCam-6.19.3.5685-py2.py3-none-any.whl</multicam_wheel>
+    <cameras_dir>C:\Users\Public\Documents\Euresys\MultiCam\Cameras</cameras_dir>
+  </sdk>
+
+  <!-- ===== 相机与采集卡 ===== -->
+  <camera>
+    <model>VIEWORKS VC-71MC-M4</model>
+    <camfile>VC-71MC-M4_P4SC</camfile>   <!-- 基名, 不带路径/扩展名 -->
+    <connector>M</connector>             <!-- M=Medium, A/B/C=Base, F=Full -->
+    <driver_index>0</driver_index>
+    <width>10000</width>
+    <height>7096</height>                <!-- 注意: 7096 不是 16 的倍数 -->
+    <bit_depth>12</bit_depth>
+    <roi_step>16</roi_step>              <!-- ROI 调整步进 -->
+  </camera>
+
+  <!-- ===== Camera Link 串口 ===== -->
+  <serial>
+    <baud>115200</baud>
+    <eol>\r\n</eol>                      <!-- CRLF -->
+  </serial>
+
+  <!-- ===== 参数范围 ===== -->
+  <ranges>
+    <shutter_min_us>66</shutter_min_us>
+    <shutter_max_us>7000000</shutter_max_us>
+    <gain_max>63</gain_max>              <!-- 31=6dB, 63=12dB, 线性 -->
+    <offset_max>63</offset_max>
+  </ranges>
+
+  <!-- ===== 串口命令模板 ({v} 为参数占位) ===== -->
+  <commands>
+    <temp>gct</temp>
+    <shutter>set {v}</shutter>
+    <gain>sag {v}</gain>
+    <offset>sao {v}</offset>
+    <get_gain>gag</get_gain>
+    <get_offset>gao</get_offset>
+    <roi_width>siw {v}</roi_width>
+    <roi_height>sih {v}</roi_height>
+    <get_width>giw</get_width>
+    <get_height>gih</get_height>
+    <get_offset_x>gox</get_offset_x>
+    <get_offset_y>goy</get_offset_y>
+  </commands>
+
+  <!-- ===== HDR 合成 ===== -->
+  <hdr>
+    <shutters>100,1000,10000,100000,1000000</shutters>  <!-- 微秒, 每档10倍 -->
+    <scale>0.25</scale>                                 <!-- 合成降采样比例 -->
+    <skip_mean_below>2</skip_mean_below>                <!-- 剔除过度欠曝档(均值<2) -->
+    <skip_mean_above>4090</skip_mean_above>             <!-- 剔除过度过曝档(均值>4090) -->
+  </hdr>
+
+  <!-- ===== 曝光扫描 ===== -->
+  <scan>
+    <shutters>100,500,1000,5000,10000,50000,100000,500000,1000000,5000000</shutters>
+    <target_fraction>0.5</target_fraction>  <!-- 最佳快门=均值最接近满量程*fraction -->
+  </scan>
+
+  <!-- ===== 预览 ===== -->
+  <preview>
+    <display_width>1250</display_width>
+    <display_height>887</display_height>
+  </preview>
+
+  <!-- ===== ROI 预设 (宽,高) ===== -->
+  <roi_presets>
+    <preset name="全幅">10000,7096</preset>
+    <preset name="1/2">4992,3552</preset>
+    <preset name="1/4">2496,1776</preset>
+    <preset name="1/8">1248,896</preset>
+  </roi_presets>
+
+</settings>
