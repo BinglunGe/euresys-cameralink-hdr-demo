@@ -15,11 +15,10 @@ import numpy as np
 import cv2
 
 from MultiCam import MC
-from vc71_camera import (SETTINGS, W, H, configure_channel, grab_frame,
+from vc71_camera import (SETTINGS, W, H, OUTDIR, configure_channel, grab_frame,
                          CameraSerial, format_shutter)
 
 SAT = SETTINGS.sat
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'output')
 
 
 # ---------------- 合成 ----------------

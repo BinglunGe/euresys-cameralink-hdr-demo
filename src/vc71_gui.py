@@ -20,13 +20,12 @@ from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QImage, QPixmap
 
 from MultiCam import MC
-from vc71_camera import (SETTINGS, W, H, configure_channel, grab_frame,
+from vc71_camera import (SETTINGS, W, H, OUTDIR, configure_channel, grab_frame,
                          CameraSerial, format_shutter, slider_to_us, us_to_slider)
 from vc71_hdr import merge, make_compare, filter_bracket
 
 SAT = SETTINGS.sat
 DISPLAY_W, DISPLAY_H = SETTINGS.display_w, SETTINGS.display_h
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'output')
 
 
 class CameraThread(QThread):

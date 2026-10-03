@@ -120,6 +120,8 @@ class Settings:
 
 SETTINGS = Settings()
 W, H = SETTINGS.width, SETTINGS.height     # 便捷别名
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTDIR = os.path.join(ROOT, 'output')      # 默认输出目录
 
 
 # ---------------- 采集 (MultiCam) ----------------

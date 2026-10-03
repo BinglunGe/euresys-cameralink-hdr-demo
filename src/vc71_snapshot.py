@@ -8,10 +8,8 @@ import numpy as np
 import cv2
 
 from MultiCam import MC
-from vc71_camera import (SETTINGS, configure_channel, grab_frame,
+from vc71_camera import (SETTINGS, OUTDIR, configure_channel, grab_frame,
                          CameraSerial, format_shutter)
-
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'output')
 
 
 def main():
