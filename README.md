@@ -1,3 +1,4 @@
+# 纯deepseek生成的项目，不为项目负责！！如果跑不了自己让AI改
 # VC-71MC-M4 相机工具集
 
 Euresys Grablink 采集卡 + VIEWORKS VC-71MC-M4（71MP Camera Link 黑白相机）的

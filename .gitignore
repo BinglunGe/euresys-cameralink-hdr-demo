@@ -22,6 +22,9 @@ output/*
 # ===== 本地覆盖配置(含机器专属路径, 不入库) =====
 settings_local.xml
 
+# ===== 专有代码 =====
+samples/
+
 # ===== 编辑器 =====
 .vscode/
 .idea/
