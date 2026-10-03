@@ -108,6 +108,18 @@ cd src
   每次 HDR 输出 4 个文件：`.hdr`(浮点辐射度) + `_tonemapped.png`(8bit) + `_tonemapped.tiff`(16bit Adobe Deflate) + `_compare.png`(轻量预览)
 - `<roi_presets>` — ROI 预设按钮
 
+## 测试
+
+无需 pytest，统一入口：
+
+```cmd
+.venv\Scripts\python.exe tests\run_tests.py     :: 12/12 (启动器 + HDR/TIFF)
+make test                                        :: 等价 (若装了 make)
+```
+
+- `tests/test_launcher.py` — run.bat 行尾/编码/分发/环境隔离（需相机：会实跑 `--temp`/抓图）
+- `tests/test_hdr.py` — HDR 全尺寸、16bit Deflate TIFF、对比图降采样、merge 尺寸（纯离线）
+
 ## 已知坑（重要）
 
 1. **快门切换需一帧才生效**：`set` 新快门后，相机下一帧仍是**旧快门**曝光的。
