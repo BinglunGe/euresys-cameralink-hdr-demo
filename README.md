@@ -104,7 +104,8 @@ cd src
 - `<serial>` — 波特率、EOL
 - `<ranges>` — 快门/增益/补偿范围
 - `<commands>` — 串口命令模板（`{v}` 为参数占位）
-- `<hdr>` / `<scan>` — 曝光序列、合成参数（`scale`：1.0=全尺寸，0.25≈提速 10 倍）、最佳快门判据
+- `<hdr>` / `<scan>` — 曝光序列、合成参数（`scale`：1.0=全尺寸，0.25≈提速 10 倍）、最佳快门判据。
+  每次 HDR 输出 4 个文件：`.hdr`(浮点辐射度) + `_tonemapped.png`(8bit) + `_tonemapped.tiff`(16bit Adobe Deflate) + `_compare.png`(轻量预览)
 - `<roi_presets>` — ROI 预设按钮
 
 ## 已知坑（重要）

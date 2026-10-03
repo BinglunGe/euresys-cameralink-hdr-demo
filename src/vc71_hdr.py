@@ -92,6 +92,15 @@ def make_compare(img_a, img_b, label_a='Debevec', label_b='Linear'):
     return np.vstack([lab, body])
 
 
+TIFF_DEFLATE = 8    # cv2.IMWRITE_TIFF_COMPRESSION: 8 = Adobe Deflate
+
+
+def write_tiff16(path, img01):
+    """把 [0,1] 浮点图写成 16-bit Adobe Deflate TIFF。"""
+    cv2.imwrite(path, (np.clip(img01, 0, 1) * 65535.0).astype(np.uint16),
+                [cv2.IMWRITE_TIFF_COMPRESSION, TIFF_DEFLATE])
+
+
 def merge(imgs12, imgs8, times):
     """返回 (hdr, ldr_debevec, E, ldr_linear)。"""
     hdr, _ = merge_debevec(imgs8, times)
@@ -157,6 +166,7 @@ def main():
     ts = time.strftime('%Y%m%d-%H%M%S')
     cv2.imwrite(os.path.join(args.outdir, 'hdr_%s.hdr' % ts), hdr)
     cv2.imwrite(os.path.join(args.outdir, 'hdr_%s_tonemapped.png' % ts), (ldr_d * 255).astype(np.uint8))
+    write_tiff16(os.path.join(args.outdir, 'hdr_%s_tonemapped.tiff' % ts), ldr_d)
     cmp = make_compare((ldr_d * 255).astype(np.uint8), (ldr_l * 255).astype(np.uint8))
     cv2.imwrite(os.path.join(args.outdir, 'hdr_%s_compare.png' % ts), cmp)
     print('Debevec DR %.1f dB | Linear DR %.1f dB' % (db_range(hdr), db_range(E)))

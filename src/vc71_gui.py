@@ -22,7 +22,7 @@ from PySide6.QtGui import QImage, QPixmap
 from MultiCam import MC
 from vc71_camera import (SETTINGS, W, H, OUTDIR, configure_channel, grab_frame,
                          CameraSerial, format_shutter, slider_to_us, us_to_slider)
-from vc71_hdr import merge, make_compare, filter_bracket
+from vc71_hdr import merge, make_compare, filter_bracket, write_tiff16
 
 SAT = SETTINGS.sat
 DISPLAY_W, DISPLAY_H = SETTINGS.display_w, SETTINGS.display_h
@@ -165,6 +165,7 @@ class CameraThread(QThread):
         path = os.path.join(OUTDIR, 'hdr_%s.png' % ts)
         cv2.imwrite(path, cmp)
         cv2.imwrite(os.path.join(OUTDIR, 'hdr_%s.hdr' % ts), hdr)
+        write_tiff16(os.path.join(OUTDIR, 'hdr_%s_tonemapped.tiff' % ts), ldr_d)
         self.hdr_done.emit(path)
 
     def _do_scan(self, ser, channel, shutters):
