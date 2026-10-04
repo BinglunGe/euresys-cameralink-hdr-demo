@@ -49,6 +49,18 @@ def _ints(parent, tag):
     return [int(x) for x in v.split(',') if x.strip()]
 
 
+def ev_bracket(start_us, stop_us, step_ev):
+    """按 EV 步进生成曝光序列: us *= 2**step_ev, 直到超过 stop_us。
+
+    step_ev=2 → 每档 4×; step_ev=1 → 每档 2×。
+    """
+    seq, us, stop = [], float(start_us), float(stop_us)
+    while us <= stop * 1.0001 and len(seq) < 64:
+        seq.append(int(round(us)))
+        us *= 2.0 ** step_ev
+    return seq or [int(start_us)]
+
+
 class Settings:
     """从 settings.xml 读取全部配置。"""
 
@@ -93,7 +105,9 @@ class Settings:
         self.cmd_get_w = _txt(cmd, 'get_width', 'giw')
         self.cmd_get_h = _txt(cmd, 'get_height', 'gih')
         # HDR / 扫描
-        self.hdr_shutters = _ints(hdr, 'shutters') or [100, 1000, 10000, 100000, 1000000]
+        self.hdr_step_ev = _flt(hdr, 'step_ev', 2.0)
+        self.hdr_shutters = _ints(hdr, 'shutters') or ev_bracket(
+            _int(hdr, 'start_us', 100), _int(hdr, 'stop_us', 1000000), self.hdr_step_ev)
         self.hdr_scale = _flt(hdr, 'scale', 0.25)
         self.hdr_skip_lo = _flt(hdr, 'skip_mean_below', 2)
         self.hdr_skip_hi = _flt(hdr, 'skip_mean_above', 4090)
@@ -241,7 +255,7 @@ def format_shutter(us):
     """快门(微秒) -> 摄影常用格式: 1/1000s, 1/2s, 2s, 10s。"""
     if us >= 1_000_000:
         s = us / 1_000_000.0
-        return '%ds' % int(s) if s == int(s) else '%gs' % s
+        return '%ds' % int(s) if s == int(s) else '%gs' % round(s, 2)
     denom = 1_000_000.0 / us
     if abs(denom - round(denom)) < 1e-6:
         return '1/%ds' % int(round(denom))

@@ -56,7 +56,11 @@
 
   <!-- ===== HDR 合成 ===== -->
   <hdr>
-    <shutters>100,1000,10000,100000,1000000</shutters>  <!-- 微秒, 每档10倍 -->
+    <!-- 曝光序列: 从 start_us 起 每档 ×2^step_ev, 直到超过 stop_us -->
+    <start_us>100</start_us>            <!-- 最短曝光(微秒) -->
+    <stop_us>2000000</stop_us>          <!-- 最长曝光(微秒) -->
+    <step_ev>2</step_ev>                <!-- 每档步进: 2EV=4倍(推荐) / 1EV=2倍(最细腻) -->
+    <!-- 如需精确控制, 用 <shutters>100,400,1600,...</shutters> 显式覆盖上面的序列 -->
     <scale>1.0</scale>                                  <!-- 合成降采样比例 (1.0=全尺寸; 0.25 约提速10倍) -->
     <skip_mean_below>2</skip_mean_below>                <!-- 剔除过度欠曝档(均值<2) -->
     <skip_mean_above>4090</skip_mean_above>             <!-- 剔除过度过曝档(均值>4090) -->

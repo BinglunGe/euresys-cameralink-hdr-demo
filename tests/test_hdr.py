@@ -82,6 +82,14 @@ def test_cli_and_gui_wire_write_tiff16():
     assert 'write_tiff16' in inspect.getsource(G.CameraThread._do_hdr)
 
 
+def test_ev_bracket_step_and_range():
+    seq = C.ev_bracket(100, 2000000, 2)              # 2 EV/档 = 4x
+    assert seq[0] == 100 and len(seq) == 8 and seq[-1] == 1638400, seq
+    assert len(C.ev_bracket(100, 2000000, 1)) == 15   # 1 EV/档
+    assert C.SETTINGS.hdr_step_ev == 2.0
+    assert C.SETTINGS.hdr_shutters[0] == 100
+
+
 if __name__ == '__main__':
     fns = [v for k, v in sorted(vars().items()) if k.startswith('test_') and callable(v)]
     fails = 0
