@@ -115,8 +115,8 @@ cd src
 无需 pytest，统一入口：
 
 ```cmd
-.venv\Scripts\python.exe tests\run_tests.py     :: 12/12 (启动器 + HDR/TIFF)
-make test                                        :: 等价 (若装了 make)
+.venv\Scripts\python.exe tests\run_tests.py     :: 13/13 (启动器 + HDR/TIFF)
+make test                                        :: 等价 (make 可 winget install ezwinports.make 获取)
 ```
 
 - `tests/test_launcher.py` — run.bat 行尾/编码/分发/环境隔离（需相机：会实跑 `--temp`/抓图）
