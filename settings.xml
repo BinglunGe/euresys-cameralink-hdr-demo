@@ -24,6 +24,12 @@
     <roi_step>16</roi_step>              <!-- ROI 调整步进 -->
   </camera>
 
+  <!-- ===== 采集卡 (Grablink) ===== -->
+  <grabber>
+    <!-- 采集超时(毫秒): 须 > 最长曝光; -1 = 禁用(无限等待); 上限 2^31-1 -->
+    <acq_timeout_ms>10000</acq_timeout_ms>
+  </grabber>
+
   <!-- ===== Camera Link 串口 ===== -->
   <serial>
     <baud>115200</baud>

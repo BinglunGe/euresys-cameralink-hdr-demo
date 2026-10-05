@@ -68,6 +68,7 @@ class Settings:
         self.path = path or _find_settings()
         root = ET.parse(self.path).getroot()
         sdk, cam = root.find('sdk'), root.find('camera')
+        grb = root.find('grabber')
         ser, rng = root.find('serial'), root.find('ranges')
         cmd, hdr = root.find('commands'), root.find('hdr')
         scan, prev = root.find('scan'), root.find('preview')
@@ -85,6 +86,8 @@ class Settings:
         self.height = _int(cam, 'height', 7096)
         self.bit_depth = _int(cam, 'bit_depth', 12)
         self.roi_step = _int(cam, 'roi_step', 16)
+        # 采集卡
+        self.acq_timeout_ms = _int(grb, 'acq_timeout_ms', 10000)
         # 串口
         self.baud = _int(ser, 'baud', 115200)
         self.eol = _txt(ser, 'eol', r'\r\n').replace('\\r', '\r').replace('\\n', '\n')
@@ -145,6 +148,8 @@ def configure_channel(channel, hactive=None, vactive=None):
     MC.SetParamStr(channel, 'Connector', s.connector)
     MC.SetParamStr(channel, 'CamFile', s.camfile)
     MC.SetParamInt(channel, 'SeqLength_Fr', 1)
+    # 采集超时(ms): 字符串标识符是 'Timeout' (≠ 参数名 AcqTimeout_ms), 须在 ACTIVE 前设置
+    MC.SetParamInt(channel, 'Timeout', s.acq_timeout_ms)
     MC.SetParamInt(channel, 'Hactive_Px', hactive or s.width)
     MC.SetParamInt(channel, 'Vactive_Ln', vactive or s.height)
     MC.SetParamStr(channel, MC.SignalEnable + MC.SIG_SURFACE_PROCESSING, 'ON')

@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""run.bat 启动器验证 (无 pytest 依赖; 需相机环境).
+"""run.bat 启动器验证 (无 pytest 依赖).
 
     python tests/test_launcher.py     # 独立运行
     pytest tests/test_launcher.py     # 若装了 pytest
 
-校验 run.bat 的启动器契约: 行尾/编码、git 属性、命令分发与 PYTHONPATH 隔离。
+分两层:
+  - 启动器层(始终校验): 行尾/编码、git 属性、命令分发、PYTHONPATH 隔离
+  - 相机层(相机在线时校验): 工具真的跑通(无异常、有正常输出); 相机不在则跳过
 """
 import os
 import re
+import sys
 import subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +24,20 @@ def _run_bat(args):
     r = subprocess.run(['cmd.exe', '/c', BAT] + args, cwd=ROOT, env=env,
                        capture_output=True, input=b'\r\n', timeout=60)
     return r.returncode, r.stdout.decode('utf-8', 'replace')
+
+
+def _camera_available():
+    """相机是否在线(串口能收到回复)。相机不在时, 硬件相关断言自动跳过。"""
+    try:
+        sys.path.insert(0, os.path.join(ROOT, 'src'))
+        from vc71_camera import CameraSerial, SETTINGS
+        ser = CameraSerial().open()
+        try:
+            return bool(ser.send(SETTINGS.cmd_temp, wait=0.3, timeout_s=2).strip())
+        finally:
+            ser.close()
+    except Exception:
+        return False
 
 
 def test_bat_line_endings_and_encoding():
@@ -45,16 +62,21 @@ def test_gui_alias_maps_to_existing_script():
 
 
 def test_launcher_dispatches_cleanly():
-    cases = [('control --temp', ['control', '--temp']),
-             ('control --cmd gag', ['control', '--cmd', 'gag']),
-             ('direct script', ['vc71_control.py', '--temp']),
-             ('snap', ['snap', '--shutter', '1000'])]
-    for label, args in cases:
+    hw = _camera_available()
+    cases = [('control --temp', ['control', '--temp'], '\u00b0C'),
+             ('control --cmd gag', ['control', '--cmd', 'gag'], 'gag ->'),
+             ('direct script', ['vc71_control.py', '--temp'], '\u00b0C'),
+             ('snap', ['snap', '--shutter', '1000'], '\u5feb\u95e8')]
+    for label, args, mark in cases:
         rc, so = _run_bat(args)
+        # --- 启动器层(与硬件无关) ---
         assert '[run.bat] python vc71_' in so, '%s 未分发到脚本: %s' % (label, so[:150])
         assert not any(k in so for k in JUNK), '%s 出现 cmd 杂讯: %s' % (label, so[:150])
-        assert 'Traceback' not in so, '%s 脚本异常:\n%s' % (label, so[-400:])
         assert 'ModuleNotFoundError' not in so, '%s 环境被污染' % label
+        # --- 相机层(仅相机在线时) ---
+        if hw:
+            assert 'Traceback' not in so, '%s 脚本异常:\n%s' % (label, so[-400:])
+            assert mark in so, '%s 输出缺少 %r: %s' % (label, mark, so[-200:])
 
 
 if __name__ == '__main__':

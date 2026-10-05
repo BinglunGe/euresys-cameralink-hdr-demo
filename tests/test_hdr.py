@@ -90,6 +90,13 @@ def test_ev_bracket_step_and_range():
     assert C.SETTINGS.hdr_shutters[0] == 100
 
 
+def test_acq_timeout_setting():
+    import inspect
+    assert C.SETTINGS.acq_timeout_ms == 10000, C.SETTINGS.acq_timeout_ms
+    # 采集超时的字符串标识符是 'Timeout' (非参数名 AcqTimeout_ms)
+    assert "'Timeout'" in inspect.getsource(C.configure_channel)
+
+
 if __name__ == '__main__':
     fns = [v for k, v in sorted(vars().items()) if k.startswith('test_') and callable(v)]
     fails = 0
