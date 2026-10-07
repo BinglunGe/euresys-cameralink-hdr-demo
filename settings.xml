@@ -82,6 +82,7 @@
   <preview>
     <display_width>1250</display_width>
     <display_height>887</display_height>
+    <negative>0</negative>               <!-- 1 = 启动即负片(软件反相, 不走硬件 LUT) -->
   </preview>
 
   <!-- ===== ROI 预设 (宽,高) ===== -->

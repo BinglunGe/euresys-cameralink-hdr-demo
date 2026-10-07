@@ -81,7 +81,11 @@ cd src
 ```
 
 功能：实时预览、ROI 预设（提帧率）、快门（滑条+输入+±0.25档）、增益、补偿、
-温度、帧率、抓单帧、HDR 合成、曝光扫描（自动最佳快门）。
+温度、帧率、**负片模式（软件反相）**、抓单帧、HDR 合成、曝光扫描（自动最佳快门）。
+
+> **负片模式**：勾选即整幅反相（12bit 域 `4095-v`，可逆）。纯 numpy 运算，**刻意不走采集卡/相机 LUT**
+> —— 硬件 LUT 需重配并重启通道，切换慢。预览、抓帧、HDR 输出同步反相（文件名加 `neg_` 前缀；
+> HDR 只反显示输出，`.hdr` 辐射度保持原样）。
 
 > 运行前请退出 **MultiCamStudio** 及厂商客户端（它们独占 Camera Link 串口）。
 
@@ -90,6 +94,7 @@ cd src
 ```cmd
 cd src
 ..\.venv\Scripts\python.exe vc71_snapshot.py --shutter 10000   # 抓单帧
+..\.venv\Scripts\python.exe vc71_snapshot.py --negative        # 抓单帧(负片)
 ..\.venv\Scripts\python.exe vc71_hdr.py                        # HDR 合成
 ..\.venv\Scripts\python.exe vc71_control.py --temp             # 读温度
 ..\.venv\Scripts\python.exe vc71_control.py --roi 2496 2000    # 设 ROI
@@ -102,12 +107,14 @@ cd src
 
 - `<sdk>` — MultiCam 安装路径、wheel 路径、相机文件目录
 - `<camera>` — 相机文件、连接器、分辨率、位深、ROI 步进
+- `<grabber>` — `acq_timeout_ms` 采集超时（须 > 最长曝光；`-1` 禁用）
 - `<serial>` — 波特率、EOL
 - `<ranges>` — 快门/增益/补偿范围
 - `<commands>` — 串口命令模板（`{v}` 为参数占位）
 - `<hdr>` — 曝光序列由 `start_us`/`stop_us`/`step_ev` 生成（`step_ev`：**2=每档 4 倍（推荐）**，`1=每档 2 倍（最细腻）`；也可用 `<shutters>` 显式覆盖）。
   `scale`：1.0=全尺寸，0.25≈提速 10 倍。每次 HDR 输出 4 个文件：`.hdr`(浮点辐射度) + `_tonemapped.png`(8bit) + `_tonemapped.tiff`(16bit Adobe Deflate) + `_compare.png`(轻量预览)
 - `<scan>` — 曝光扫描序列、最佳快门判据
+- `<preview>` — 预览尺寸、`negative`（1=启动即负片）
 - `<roi_presets>` — ROI 预设按钮
 
 ## 测试

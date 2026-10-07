@@ -15,13 +15,14 @@ import numpy as np
 import cv2
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel,
                                QVBoxLayout, QHBoxLayout, QSlider, QPushButton,
-                               QGroupBox, QDialog, QSpinBox)
+                               QGroupBox, QDialog, QSpinBox, QCheckBox)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QImage, QPixmap
 
 from MultiCam import MC
 from vc71_camera import (SETTINGS, W, H, OUTDIR, configure_channel, grab_frame,
-                         CameraSerial, format_shutter, slider_to_us, us_to_slider)
+                         CameraSerial, format_shutter, slider_to_us, us_to_slider,
+                         to_negative)
 from vc71_hdr import merge, make_compare, filter_bracket, write_tiff16
 
 SAT = SETTINGS.sat
@@ -43,6 +44,7 @@ class CameraThread(QThread):
         self.tasks = queue.Queue()
         self.running = False
         self.save_request = False
+        self.negative = SETTINGS.negative       # 软件负片(反相)
 
     def run(self):
         ser = None
@@ -79,11 +81,14 @@ class CameraThread(QThread):
                     frame = grab_frame(channel, timeout_ms=3000)
                 except Exception:
                     continue
+                if self.negative:
+                    frame = to_negative(frame)      # 软件反相(预览与保存同源)
                 if self.save_request:
                     self.save_request = False
                     os.makedirs(OUTDIR, exist_ok=True)
                     ts = time.strftime('%Y%m%d-%H%M%S')
-                    path = os.path.join(OUTDIR, 'gui_%s.png' % ts)
+                    tag = 'neg_' if self.negative else ''
+                    path = os.path.join(OUTDIR, 'gui_%s%s.png' % (tag, ts))
                     cv2.imwrite(path, (frame >> 4).astype(np.uint8))
                     self.status.emit('已保存: %s' % path)
                 fh, fw = frame.shape
@@ -158,14 +163,17 @@ class CameraThread(QThread):
             self.status.emit('HDR: 剔除 %d 个极端曝光档' % dropped)
         self.status.emit('HDR: 合成中...')
         hdr, ldr_d, E, ldr_l = merge(imgs12, imgs8, times)
+        if self.negative:
+            ldr_d, ldr_l = 1.0 - ldr_d, 1.0 - ldr_l   # 负片只反显示输出, .hdr 辐射度保持原样
         cmp = make_compare((ldr_d * 255).astype(np.uint8),
                            (ldr_l * 255).astype(np.uint8))
         os.makedirs(OUTDIR, exist_ok=True)
         ts = time.strftime('%Y%m%d-%H%M%S')
-        path = os.path.join(OUTDIR, 'hdr_%s.png' % ts)
+        tag = 'neg_' if self.negative else ''
+        path = os.path.join(OUTDIR, 'hdr_%s%s.png' % (tag, ts))
         cv2.imwrite(path, cmp)
-        cv2.imwrite(os.path.join(OUTDIR, 'hdr_%s.hdr' % ts), hdr)
-        write_tiff16(os.path.join(OUTDIR, 'hdr_%s_tonemapped.tiff' % ts), ldr_d)
+        cv2.imwrite(os.path.join(OUTDIR, 'hdr_%s%s.hdr' % (tag, ts)), hdr)
+        write_tiff16(os.path.join(OUTDIR, 'hdr_%s%s_tonemapped.tiff' % (tag, ts)), ldr_d)
         self.hdr_done.emit(path)
 
     def _do_scan(self, ser, channel, shutters):
@@ -184,6 +192,8 @@ class CameraThread(QThread):
             if scale < 1.0:
                 frame = cv2.resize(frame, (int(fw * scale), int(fh * scale)),
                                    interpolation=cv2.INTER_AREA)
+            if self.negative:
+                frame = to_negative(frame)      # 只反预览; 均值仍按原图算
             self.scan_update.emit((frame >> 4).astype(np.uint8), us)
             self.status.emit('扫描 %s: 均值 %.1f' % (format_shutter(us), mean))
         target = SAT * SETTINGS.scan_target
@@ -301,6 +311,11 @@ class MainWindow(QMainWindow):
         self.roi_apply.clicked.connect(lambda: self.cam.set_roi(self.roi_w.value(), self.roi_h.value()))
         roi_row.addWidget(self.roi_apply)
 
+        # 负片模式(软件反相, 不走硬件 LUT)
+        self.neg_check = QCheckBox('负片模式(软件反相)')
+        self.neg_check.setChecked(SETTINGS.negative)
+        self.neg_check.toggled.connect(self.on_negative)
+
         # 操作按钮
         self.snap_btn = QPushButton('抓单帧(存PNG)')
         self.snap_btn.clicked.connect(self.on_snap)
@@ -326,6 +341,7 @@ class MainWindow(QMainWindow):
         pl.addWidget(QLabel('ROI 预设 / 自定义:'))
         pl.addLayout(preset_row)
         pl.addLayout(roi_row)
+        pl.addWidget(self.neg_check)
         pl.addWidget(self.snap_btn)
         pl.addWidget(self.hdr_btn)
         pl.addWidget(self.scan_btn)
@@ -421,6 +437,11 @@ class MainWindow(QMainWindow):
         self.roi_w.blockSignals(False)
         self.roi_h.blockSignals(False)
         self.cam.set_roi(w, h)
+
+    def on_negative(self, on):
+        self.cam.negative = bool(on)
+        self.status_label.setText('负片模式: %s (软件反相 %.0f-v)' % (
+            '开' if on else '关', SAT))
 
     def on_snap(self):
         self.cam.request_save()

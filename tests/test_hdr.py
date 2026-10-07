@@ -97,6 +97,16 @@ def test_acq_timeout_setting():
     assert "'Timeout'" in inspect.getsource(C.configure_channel)
 
 
+def test_to_negative():
+    import numpy as np
+    a8 = np.array([[0, 128, 255]], dtype=np.uint8)
+    assert (C.to_negative(a8) == np.array([[255, 127, 0]], dtype=np.uint8)).all()
+    a12 = np.array([[0, 2048, 4095]], dtype=np.uint16)
+    assert (C.to_negative(a12) == np.array([[4095, 2047, 0]], dtype=np.uint16)).all()
+    assert (C.to_negative(C.to_negative(a12)) == a12).all()   # 反相两次还原
+    assert isinstance(C.SETTINGS.negative, bool)
+
+
 if __name__ == '__main__':
     fns = [v for k, v in sorted(vars().items()) if k.startswith('test_') and callable(v)]
     fails = 0

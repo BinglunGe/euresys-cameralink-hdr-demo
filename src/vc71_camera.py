@@ -119,6 +119,7 @@ class Settings:
         # 预览
         self.display_w = _int(prev, 'display_width', 1250)
         self.display_h = _int(prev, 'display_height', 887)
+        self.negative = bool(_int(prev, 'negative', 0))
         # ROI 预设
         self.roi_presets = []
         rp = root.find('roi_presets')
@@ -251,6 +252,18 @@ class CameraSerial:
 
 
 # ---------------- 工具 ----------------
+def to_negative(arr, sat=None):
+    """软件负片(反相): uint8 → 255-v; 否则按位深满量程 (12bit → 4095-v)。
+
+    纯 numpy 运算, 刻意不走采集卡/相机 LUT —— 硬件 LUT 需重配通道, 切换慢。
+    """
+    if sat is None:
+        sat = 255 if arr.dtype == np.uint8 else int(SETTINGS.sat)
+    out = sat - arr.astype(np.int32)
+    np.clip(out, 0, sat, out=out)
+    return out.astype(arr.dtype)
+
+
 _COMMON_DENOMS = [1, 2, 3, 4, 5, 6, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 80,
                   100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250,
                   1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000]
