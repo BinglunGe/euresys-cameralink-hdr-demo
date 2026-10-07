@@ -135,6 +135,49 @@ def test_focus_peaking_keeps_12bit_brightness():
     assert out[:, :, 0].max() > 200, '12bit 底图被压黑(应 >>4 而非 >>8): %d' % out[:, :, 0].max()
 
 
+def test_magnify_quadrants_are_1to1_corners():
+    import vc71_gui as G
+    img = np.arange(100 * 200, dtype=np.uint8).reshape(100, 200)   # uint8 原样透过
+    out = G.magnify_quadrants(img, 100, 60)                        # 每块 50x30
+    ph, pw = 30, 50
+    assert out.shape == (60, 100) and out.dtype == np.uint8
+    # 四块 = 原图四角, 逐像素一致(1:1 无缩放)
+    assert (out[:ph, :pw] == img[:ph, :pw]).all()
+    assert (out[:ph, pw:] == img[:ph, -pw:]).all()
+    assert (out[ph:, :pw] == img[-ph:, :pw]).all()
+    assert (out[ph:, pw:] == img[-ph:, -pw:]).all()
+
+
+def test_magnify_peaking_is_per_pane():
+    """峰值必须逐块做: 四块内容不同造成的接缝不能被标红。"""
+    import vc71_gui as G
+    img = np.zeros((40, 60), dtype=np.uint8)
+    img[:20, -30:] = 100      # 四块各自平坦, 但值不同 -> 拼起来有明显接缝
+    img[-20:, :30] = 200
+    img[-20:, -30:] = 50
+    out = G.magnify_quadrants(img, 60, 40, lambda q: G.focus_peaking(q, 3.0))
+    assert out.shape == (40, 60, 3) and out.dtype == np.uint8
+    assert (out[:, :, 2] == 255).sum() == 0, '每块都平坦, 接缝不该被标红'
+
+
+def test_draw_cross_marks_midlines():
+    import vc71_gui as G
+    img = np.zeros((10, 20), dtype=np.uint8)
+    G.draw_cross(img)
+    assert (img[4, :] == 255).all() and (img[:, 9] == 255).all()
+    assert img[0, 0] == 0
+
+
+def test_fit_never_upscales():
+    import vc71_gui as G
+    assert G.fit(np.zeros((20, 30), dtype=np.uint8), 100, 100).shape == (20, 30)
+    assert G.fit(np.zeros((2000, 4000), dtype=np.uint16), 100, 100).shape == (50, 100)
+
+
+def test_magnify_settings():
+    assert isinstance(C.SETTINGS.magnify, bool)
+
+
 def test_peaking_settings():
     import vc71_gui as G
     assert isinstance(C.SETTINGS.peaking, bool)

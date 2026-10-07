@@ -29,6 +29,11 @@ SAT = SETTINGS.sat
 DISPLAY_W, DISPLAY_H = SETTINGS.display_w, SETTINGS.display_h
 
 
+def to8(g):
+    """原生位深 -> 显示用 8bit。12bit 右移 4 位(>>8 是 16bit 的做法, 会把 12bit 压黑)。"""
+    return g if g.dtype == np.uint8 else (g >> max(0, SETTINGS.bit_depth - 8)).astype(np.uint8)
+
+
 def focus_peaking(gray, coverage_pct=None):
     """峰值对焦: 把梯度最强的 coverage_pct% 像素标红, 返回 BGR uint8。
 
@@ -38,9 +43,7 @@ def focus_peaking(gray, coverage_pct=None):
     """
     if coverage_pct is None:
         coverage_pct = SETTINGS.peaking_coverage
-    # 显示底图: 用预览管线的同一约定 —— 12bit 右移 4 位(>>8 是 16bit 的做法, 会把 12bit 压成全黑)
-    base = gray if gray.dtype == np.uint8 else (
-        gray >> max(0, SETTINGS.bit_depth - 8)).astype(np.uint8)
+    base = to8(gray)
     g = cv2.GaussianBlur(gray.astype(np.float32), (3, 3), 0)        # 轻微抑噪
     mag = cv2.magnitude(cv2.Sobel(g, cv2.CV_32F, 1, 0, 3),
                         cv2.Sobel(g, cv2.CV_32F, 0, 1, 3))
@@ -50,6 +53,48 @@ def focus_peaking(gray, coverage_pct=None):
     out = cv2.cvtColor(base, cv2.COLOR_GRAY2BGR)
     out[mag >= thr] = (0, 0, 255)     # 纯红: 只改红通道的话, 亮背景会被冲成白色 -> 峰值看不见
     return out
+
+
+def fit(gray, dw, dh):
+    """整幅等比缩放到预览尺寸内(不放大)。"""
+    h, w = gray.shape
+    s = min(1.0, dw / w, dh / h)
+    return (cv2.resize(gray, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
+            if s < 1.0 else gray)
+
+
+def magnify_quadrants(gray, dw, dh, peaker=None):
+    """放大对焦: 从四个角各裁一块原图拼成 2x2 画布, **逐像素 1:1 不缩放**。
+
+    1:1 = 1 个传感器像素对 1 个屏幕像素 —— 所以必须拿**全分辨率帧**来裁;
+    先降采样再裁就只剩放大模糊了。四角同看便于检查场曲/边缘合焦。
+    peaker: 可选逐块处理函数(如 focus_peaking)。必须在**拼图前**逐块做 ——
+    块间的接缝本身就是自然强边, 拼完再算梯度会把整条缝标红。
+    返回显示用 8bit: 无 peaker -> 灰度, 有 peaker -> BGR。
+    """
+    h, w = gray.shape
+    ph, pw = min(dh // 2, h), min(dw // 2, w)
+    quads = [gray[:ph, :pw], gray[:ph, w - pw:],          # 左上, 右上
+             gray[h - ph:, :pw], gray[h - ph:, w - pw:]]  # 左下, 右下
+    if peaker is not None:
+        out = np.empty((ph * 2, pw * 2, 3), np.uint8)
+        quads = [peaker(q) for q in quads]
+    else:
+        out = np.empty((ph * 2, pw * 2), np.uint8)
+        quads = [to8(q) for q in quads]
+    out[:ph, :pw], out[:ph, pw:], out[ph:, :pw], out[ph:, pw:] = quads
+    return out
+
+
+def draw_cross(img):
+    """给 2x2 拼图画 1px 十字分隔线。
+
+    必须画在**峰值对焦之后**: 分隔线是人工的满梯度边, 先画会被 focus_peaking 当成锐边标红。
+    """
+    h, w = img.shape[:2]
+    img[h // 2 - 1, :] = 255
+    img[:, w // 2 - 1] = 255
+    return img
 
 
 class CameraThread(QThread):
@@ -70,6 +115,7 @@ class CameraThread(QThread):
         self.negative = SETTINGS.negative       # 软件负片(反相)
         self.peaking = SETTINGS.peaking         # 峰值对焦(红色标合焦处)
         self.peaking_coverage = SETTINGS.peaking_coverage
+        self.magnify = SETTINGS.magnify         # 放大对焦(四角 1:1)
 
     def run(self):
         ser = None
@@ -116,14 +162,19 @@ class CameraThread(QThread):
                     path = os.path.join(OUTDIR, 'gui_%s%s.png' % (tag, ts))
                     cv2.imwrite(path, (frame >> 4).astype(np.uint8))
                     self.status.emit('已保存: %s' % path)
-                fh, fw = frame.shape
-                scale = min(1.0, DISPLAY_W / fw, DISPLAY_H / fh)
-                if scale < 1.0:
-                    frame = cv2.resize(frame, (int(fw * scale), int(fh * scale)),
-                                       interpolation=cv2.INTER_AREA)
-                self.frame_ready.emit(focus_peaking(frame, self.peaking_coverage)
-                                      if self.peaking
-                                      else (frame >> 4).astype(np.uint8))
+                # 放大对焦必须拿全分辨率帧来裁(先降采样再裁就没有 1:1 了)
+                if self.magnify:
+                    disp = magnify_quadrants(
+                        frame, DISPLAY_W, DISPLAY_H,
+                        (lambda q: focus_peaking(q, self.peaking_coverage))
+                        if self.peaking else None)
+                    disp = draw_cross(disp)
+                elif self.peaking:
+                    disp = focus_peaking(fit(frame, DISPLAY_W, DISPLAY_H),
+                                         self.peaking_coverage)
+                else:
+                    disp = to8(fit(frame, DISPLAY_W, DISPLAY_H))
+                self.frame_ready.emit(disp)
         finally:
             MC.Delete(channel)
             MC.CloseDriver()
@@ -345,7 +396,11 @@ class MainWindow(QMainWindow):
         self.neg_check.setChecked(SETTINGS.negative)
         self.neg_check.toggled.connect(self.on_negative)
 
-        # 峰值对焦(红色标出合焦处) + 灵敏度
+        # 放大对焦 + 峰值对焦
+        self.mag_check = QCheckBox('放大对焦(四角 1:1)')
+        self.mag_check.setChecked(SETTINGS.magnify)
+        self.mag_check.toggled.connect(self.on_magnify)
+
         self.peak_check = QCheckBox('对焦指示(峰值对焦)')
         self.peak_check.setChecked(SETTINGS.peaking)
         self.peak_check.toggled.connect(self.on_peaking)
@@ -381,6 +436,7 @@ class MainWindow(QMainWindow):
         pl.addLayout(preset_row)
         pl.addLayout(roi_row)
         pl.addWidget(self.neg_check)
+        pl.addWidget(self.mag_check)
         pl.addWidget(self.peak_check)
         pl.addWidget(self.peak_label)
         pl.addWidget(self.peak_slider)
@@ -487,6 +543,12 @@ class MainWindow(QMainWindow):
         self.cam.negative = bool(on)
         self.status_label.setText('负片模式: %s (软件反相 %.0f-v)' % (
             '开' if on else '关', SAT))
+
+    def on_magnify(self, on):
+        self.cam.magnify = bool(on)
+        self.status_label.setText('放大对焦: %s' % (
+            '开 (四角 1:1, 每块 %dx%d 像素)' % (DISPLAY_W // 2, DISPLAY_H // 2)
+            if on else '关'))
 
     def on_peaking(self, on):
         self.cam.peaking = bool(on)

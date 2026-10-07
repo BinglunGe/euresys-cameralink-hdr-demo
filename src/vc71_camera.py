@@ -122,6 +122,7 @@ class Settings:
         self.negative = bool(_int(prev, 'negative', 0))
         self.peaking = bool(_int(prev, 'peaking', 0))
         self.peaking_coverage = _flt(prev, 'peaking_coverage', 3.0)
+        self.magnify = bool(_int(prev, 'magnify', 0))
         # ROI 预设
         self.roi_presets = []
         rp = root.find('roi_presets')
