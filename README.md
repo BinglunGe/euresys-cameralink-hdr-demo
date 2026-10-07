@@ -81,11 +81,15 @@ cd src
 ```
 
 功能：实时预览、ROI 预设（提帧率）、快门（滑条+输入+±0.25档）、增益、补偿、
-温度、帧率、**负片模式（软件反相）**、抓单帧、HDR 合成、曝光扫描（自动最佳快门）。
+温度、帧率、**负片模式（软件反相）**、**对焦指示（峰值对焦 + 灵敏度滑条）**、抓单帧、HDR 合成、曝光扫描（自动最佳快门）。
 
 > **负片模式**：勾选即整幅反相（12bit 域 `4095-v`，可逆）。纯 numpy 运算，**刻意不走采集卡/相机 LUT**
 > —— 硬件 LUT 需重配并重启通道，切换慢。预览、抓帧、HDR 输出同步反相（文件名加 `neg_` 前缀；
 > HDR 只反显示输出，`.hdr` 辐射度保持原样）。
+
+> **对焦指示（峰值对焦）**：把梯度最强的 N% 像素标成**纯红**（纯红而非只改红通道——否则亮背景上会被冲成白色看不见），
+> 像微单一样指示合焦处。关键设计：阈值用**梯度分位数自适应**，不用固定阈值（场景亮度/对比度一变固定阈值就失效）。
+> N 即灵敏度滑条（1–10%，越小越严格，只标最锐的边）。**纯显示辅助、不落盘**，关闭时零开销；开销 ~20–40ms @ 1250×887。
 
 > 运行前请退出 **MultiCamStudio** 及厂商客户端（它们独占 Camera Link 串口）。
 
@@ -114,7 +118,7 @@ cd src
 - `<hdr>` — 曝光序列由 `start_us`/`stop_us`/`step_ev` 生成（`step_ev`：**2=每档 4 倍（推荐）**，`1=每档 2 倍（最细腻）`；也可用 `<shutters>` 显式覆盖）。
   `scale`：1.0=全尺寸，0.25≈提速 10 倍。每次 HDR 输出 4 个文件：`.hdr`(浮点辐射度) + `_tonemapped.png`(8bit) + `_tonemapped.tiff`(16bit Adobe Deflate) + `_compare.png`(轻量预览)
 - `<scan>` — 曝光扫描序列、最佳快门判据
-- `<preview>` — 预览尺寸、`negative`（1=启动即负片）
+- `<preview>` — 预览尺寸、`negative`（1=启动即负片）、`peaking`/`peaking_coverage`（峰值对焦开关及灵敏度%）
 - `<roi_presets>` — ROI 预设按钮
 
 ## 测试
@@ -122,12 +126,15 @@ cd src
 无需 pytest，统一入口：
 
 ```cmd
-.venv\Scripts\python.exe tests\run_tests.py     :: 13/13 (启动器 + HDR/TIFF)
+.venv\Scripts\python.exe tests\run_tests.py     :: 19/19 (启动器 + HDR/TIFF + 负片/峰值)
 make test                                        :: 等价 (make 可 winget install ezwinports.make 获取)
+.venv\Scripts\python.exe tests\smoke_gui.py      :: GUI 冒烟(端到端: 预览/ROI/HDR/扫描, 需相机)
 ```
 
-- `tests/test_launcher.py` — run.bat 行尾/编码/分发/环境隔离（需相机：会实跑 `--temp`/抓图）
-- `tests/test_hdr.py` — HDR 全尺寸、16bit Deflate TIFF、对比图降采样、merge 尺寸（纯离线）
+- `tests/test_launcher.py` — run.bat 行尾/编码/分发/环境隔离（需相机：会实跑 `--temp`/抓图；相机离线时硬件断言自动跳过）
+- `tests/test_hdr.py` — HDR 全尺寸、16bit Deflate TIFF、对比图降采样、负片反相、峰值对焦、采集超时（纯离线）
+- `tests/smoke_gui.py` — **事件驱动**（等够帧数 / 等完成回调），不用固定秒数：线程启动期约 8s、全尺寸 HDR 约 50s、扫描 30s+，
+  固定秒数会把阶段截断（实测旧版阶段1 得 0 帧、报告里没有扫描结果）
 
 ## 已知坑（重要）
 

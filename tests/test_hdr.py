@@ -107,6 +107,41 @@ def test_to_negative():
     assert isinstance(C.SETTINGS.negative, bool)
 
 
+def test_focus_peaking_marks_edges_only():
+    import vc71_gui as G
+    img = np.zeros((60, 80), dtype=np.uint8)
+    img[:, 40:] = 200                                  # 竖直边界
+    out = G.focus_peaking(img, coverage_pct=2.0)
+    assert out.shape == (60, 80, 3) and out.dtype == np.uint8
+    red = out[:, :, 2] == 255
+    assert 0 < red.sum() < img.size * 0.2, '红色应少量且集中(%d)' % red.sum()
+    cols = np.where(red.any(axis=0))[0]
+    assert 34 <= cols.min() and cols.max() <= 46, '红色应只在边界附近: %s' % cols
+    assert not out[red][:, 0].any() and not out[red][:, 1].any(), '峰值应纯红(亮背景上才可见)'
+    # 灵敏度数值越大越宽松, 标红不会更少
+    assert (G.focus_peaking(img, 10.0)[:, :, 2] == 255).sum() >= red.sum()
+
+
+def test_focus_peaking_flat_image_stays_clean():
+    import vc71_gui as G
+    flat = np.full((40, 40), 128, dtype=np.uint8)      # 全平: 没有边
+    assert (G.focus_peaking(flat, 3.0)[:, :, 2] == 255).sum() == 0
+
+
+def test_focus_peaking_keeps_12bit_brightness():
+    import vc71_gui as G
+    img = np.full((20, 20), 4000, dtype=np.uint16)     # 12bit 亮场
+    out = G.focus_peaking(img, 3.0)
+    assert out[:, :, 0].max() > 200, '12bit 底图被压黑(应 >>4 而非 >>8): %d' % out[:, :, 0].max()
+
+
+def test_peaking_settings():
+    import vc71_gui as G
+    assert isinstance(C.SETTINGS.peaking, bool)
+    assert 1 <= C.SETTINGS.peaking_coverage <= 10
+    assert callable(G.focus_peaking)
+
+
 if __name__ == '__main__':
     fns = [v for k, v in sorted(vars().items()) if k.startswith('test_') and callable(v)]
     fails = 0

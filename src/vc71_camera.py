@@ -120,6 +120,8 @@ class Settings:
         self.display_w = _int(prev, 'display_width', 1250)
         self.display_h = _int(prev, 'display_height', 887)
         self.negative = bool(_int(prev, 'negative', 0))
+        self.peaking = bool(_int(prev, 'peaking', 0))
+        self.peaking_coverage = _flt(prev, 'peaking_coverage', 3.0)
         # ROI 预设
         self.roi_presets = []
         rp = root.find('roi_presets')

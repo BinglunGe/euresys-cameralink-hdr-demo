@@ -83,6 +83,8 @@
     <display_width>1250</display_width>
     <display_height>887</display_height>
     <negative>0</negative>               <!-- 1 = 启动即负片(软件反相, 不走硬件 LUT) -->
+    <peaking>0</peaking>                 <!-- 1 = 启动即峰值对焦(红色标出合焦处) -->
+    <peaking_coverage>3</peaking_coverage>  <!-- 标红像素比例(%): 越小越严格, 只标最锐的边 -->
   </preview>
 
   <!-- ===== ROI 预设 (宽,高) ===== -->

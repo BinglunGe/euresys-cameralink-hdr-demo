@@ -29,6 +29,29 @@ SAT = SETTINGS.sat
 DISPLAY_W, DISPLAY_H = SETTINGS.display_w, SETTINGS.display_h
 
 
+def focus_peaking(gray, coverage_pct=None):
+    """峰值对焦: 把梯度最强的 coverage_pct% 像素标红, 返回 BGR uint8。
+
+    用自适应阈值(梯度分位数), 不用固定阈值 —— 场景亮度/对比度一变固定阈值就失效
+    (实测在颗粒噪点多的画面上会标红 99% 像素)。coverage 越小越严格, 只标最锐的边。
+    纯显示辅助, 不落盘。开销 ~20-40ms @ 1250x887。
+    """
+    if coverage_pct is None:
+        coverage_pct = SETTINGS.peaking_coverage
+    # 显示底图: 用预览管线的同一约定 —— 12bit 右移 4 位(>>8 是 16bit 的做法, 会把 12bit 压成全黑)
+    base = gray if gray.dtype == np.uint8 else (
+        gray >> max(0, SETTINGS.bit_depth - 8)).astype(np.uint8)
+    g = cv2.GaussianBlur(gray.astype(np.float32), (3, 3), 0)        # 轻微抑噪
+    mag = cv2.magnitude(cv2.Sobel(g, cv2.CV_32F, 1, 0, 3),
+                        cv2.Sobel(g, cv2.CV_32F, 0, 1, 3))
+    thr = float(np.percentile(mag[::4, ::4], 100.0 - coverage_pct))  # 采样分位数, 快
+    if thr <= 0:                                                     # 梯度稀疏到分位数归零 ->
+        thr = np.finfo(mag.dtype).tiny                               # 退化为"只标非零梯度"
+    out = cv2.cvtColor(base, cv2.COLOR_GRAY2BGR)
+    out[mag >= thr] = (0, 0, 255)     # 纯红: 只改红通道的话, 亮背景会被冲成白色 -> 峰值看不见
+    return out
+
+
 class CameraThread(QThread):
     frame_ready = Signal(object)
     temp_ready = Signal(str)
@@ -45,6 +68,8 @@ class CameraThread(QThread):
         self.running = False
         self.save_request = False
         self.negative = SETTINGS.negative       # 软件负片(反相)
+        self.peaking = SETTINGS.peaking         # 峰值对焦(红色标合焦处)
+        self.peaking_coverage = SETTINGS.peaking_coverage
 
     def run(self):
         ser = None
@@ -96,7 +121,9 @@ class CameraThread(QThread):
                 if scale < 1.0:
                     frame = cv2.resize(frame, (int(fw * scale), int(fh * scale)),
                                        interpolation=cv2.INTER_AREA)
-                self.frame_ready.emit((frame >> 4).astype(np.uint8))
+                self.frame_ready.emit(focus_peaking(frame, self.peaking_coverage)
+                                      if self.peaking
+                                      else (frame >> 4).astype(np.uint8))
         finally:
             MC.Delete(channel)
             MC.CloseDriver()
@@ -194,7 +221,9 @@ class CameraThread(QThread):
                                    interpolation=cv2.INTER_AREA)
             if self.negative:
                 frame = to_negative(frame)      # 只反预览; 均值仍按原图算
-            self.scan_update.emit((frame >> 4).astype(np.uint8), us)
+            self.scan_update.emit(focus_peaking(frame, self.peaking_coverage)
+                                  if self.peaking
+                                  else (frame >> 4).astype(np.uint8), us)
             self.status.emit('扫描 %s: 均值 %.1f' % (format_shutter(us), mean))
         target = SAT * SETTINGS.scan_target
         best_us, best_mean = min(results, key=lambda r: abs(r[1] - target))
@@ -316,6 +345,16 @@ class MainWindow(QMainWindow):
         self.neg_check.setChecked(SETTINGS.negative)
         self.neg_check.toggled.connect(self.on_negative)
 
+        # 峰值对焦(红色标出合焦处) + 灵敏度
+        self.peak_check = QCheckBox('对焦指示(峰值对焦)')
+        self.peak_check.setChecked(SETTINGS.peaking)
+        self.peak_check.toggled.connect(self.on_peaking)
+        self.peak_slider = QSlider(Qt.Horizontal)
+        self.peak_slider.setRange(1, 10)                    # 标红像素比例(%)
+        self.peak_slider.setValue(int(SETTINGS.peaking_coverage))
+        self.peak_slider.valueChanged.connect(self.on_peaking_level)
+        self.peak_label = QLabel('峰值灵敏度: %d%%' % self.peak_slider.value())
+
         # 操作按钮
         self.snap_btn = QPushButton('抓单帧(存PNG)')
         self.snap_btn.clicked.connect(self.on_snap)
@@ -342,6 +381,9 @@ class MainWindow(QMainWindow):
         pl.addLayout(preset_row)
         pl.addLayout(roi_row)
         pl.addWidget(self.neg_check)
+        pl.addWidget(self.peak_check)
+        pl.addWidget(self.peak_label)
+        pl.addWidget(self.peak_slider)
         pl.addWidget(self.snap_btn)
         pl.addWidget(self.hdr_btn)
         pl.addWidget(self.scan_btn)
@@ -386,8 +428,11 @@ class MainWindow(QMainWindow):
     def on_frame(self, arr):
         self._frame_count += 1
         arr = np.ascontiguousarray(arr)
-        h, w = arr.shape
-        qimg = QImage(arr.data, w, h, w, QImage.Format_Grayscale8)
+        h, w = arr.shape[:2]
+        if arr.ndim == 3:                       # 峰值对焦 -> BGR
+            qimg = QImage(arr.data, w, h, w * arr.shape[2], QImage.Format_BGR888)
+        else:                                   # 普通灰度
+            qimg = QImage(arr.data, w, h, w, QImage.Format_Grayscale8)
         self.image_label.setPixmap(QPixmap.fromImage(qimg))
 
     def update_fps(self):
@@ -442,6 +487,15 @@ class MainWindow(QMainWindow):
         self.cam.negative = bool(on)
         self.status_label.setText('负片模式: %s (软件反相 %.0f-v)' % (
             '开' if on else '关', SAT))
+
+    def on_peaking(self, on):
+        self.cam.peaking = bool(on)
+        self.status_label.setText('峰值对焦: %s (标红梯度最强的 %d%%)' % (
+            '开' if on else '关', self.peak_slider.value()))
+
+    def on_peaking_level(self, v):
+        self.cam.peaking_coverage = float(v)
+        self.peak_label.setText('峰值灵敏度: %d%%' % v)
 
     def on_snap(self):
         self.cam.request_save()
